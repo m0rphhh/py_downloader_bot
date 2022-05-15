@@ -1,6 +1,7 @@
 import os
 import telebot
 import yt_dlp
+import vk_audio
 
 bot = telebot.TeleBot('TOKEN')
 
@@ -42,6 +43,16 @@ def get_name_of_file(message):
 
     bot.send_document(message.chat.id, open(user.file_name, 'rb'))
     os.remove(user.file_name)
+
+
+@bot.message_handler(commands=['vk'])
+def vk(message):
+    msg = bot.reply_to(message, 'Search query')
+    bot.register_next_step_handler(msg, send_audio)
+
+
+def send_audio(message):
+    bot.send_audio(message.chat.id, vk_audio.main(message.text))
 
 
 bot.infinity_polling()
