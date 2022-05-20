@@ -5,8 +5,15 @@ import string
 import telebot
 import yt_dlp
 import vk_audio
+import moviepy.editor as mp
 
 bot = telebot.TeleBot('TOKEN')
+
+
+def get_duration(seconds):
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return "%d:%02d:%02d" % (h, m, s)
 
 
 class User:
@@ -61,13 +68,14 @@ def get_name_of_file(message):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([str(user.link)])
 
+    duration = get_duration(mp.VideoFileClip(user.file_name + '.mp4').duration)
+    from_to_string = user.cut.split()
     audio_only_pattern = '^yes$'
     time_pattern = '^\d{2}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$'
 
     is_cut = False
-    if re.match(time_pattern, user.cut):
+    if re.match(time_pattern, user.cut) and from_to_string[0] < from_to_string[1] and from_to_string[1] > from_to_string[0] and from_to_string[1] <= duration and from_to_string[0] < duration:
         is_cut = True
-        from_to_string = user.cut.split()
         cut_script = f"""ffmpeg -i {user.file_name + '.mp4'} -ss {from_to_string[0]} -to {from_to_string[1]} -c copy {edited_filename} """
         os.system(cut_script)
 
