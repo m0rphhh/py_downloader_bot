@@ -4,10 +4,13 @@ import re
 import string
 import telebot
 import yt_dlp
+from yt_dlp import DownloadError
 import vk_audio
 import moviepy.editor as mp
+from decouple import config
 
-bot = telebot.TeleBot('TOKEN')
+
+bot = telebot.TeleBot(config('BOT_TOKEN'))
 
 
 def get_duration(seconds):
@@ -16,95 +19,83 @@ def get_duration(seconds):
     return "%d:%02d:%02d" % (h, m, s)
 
 
-class User:
-    link = None
-    file_name = None
-    cut = None
-    audio_only = None
-
-    def __init__(self):
-        self.link = None
-        self.file_name = None
-        self.cut = None
-        self.audio_only = None
-
-
-user = User
-
-
 @bot.message_handler(commands=['start'])
 def start(message):
-    msg = bot.reply_to(message, 'Link to video')
-    bot.register_next_step_handler(msg, get_link)
+    bot.reply_to(message, 'copy this template and insert your data\n'
+                          'link is required, leave other settings empty if they are not required')
+    msg = bot.reply_to(message, 'link:http...\n'
+                                'filename:video...\n'
+                                'cut:00:00:00 00:01:00\n'
+                                'audio_only:yes\n')
+    bot.register_next_step_handler(msg, get_info)
 
 
-def get_link(message):
-    user.link = message.text
-    msg = bot.reply_to(message, 'Name of file')
-    bot.register_next_step_handler(msg, get_cut)
+def get_info(message):
+    info = message.text
+    info_split = info.split('\n')
 
+    try:
+        link = info_split[0].split("link:", 1)[1]
+        filename = info_split[1].split("filename:", 1)[1]
+        if filename == '':
+            filename = 'video'
+        cut = info_split[2].split("cut:", 1)[1]
+        audio_only = info_split[3].split("audio_only:", 1)[1]
+    except IndexError:
+        bot.reply_to(message, 'template filled incorrectly, type in /start to start over (some of settings are empty)')
 
-def get_cut(message):
-    user.file_name = message.text
-    msg = bot.reply_to(message,
-                       'print wanted cut in format 00:00:00 00:00:00 \nprint any char for downloading without cut')
-    bot.register_next_step_handler(msg, get_audio_only_info)
-
-
-def get_audio_only_info(message):
-    user.cut = message.text
-    msg = bot.reply_to(message, 'do you want audio only? print "yes". else type any char or string')
-    bot.register_next_step_handler(msg, get_name_of_file)
-
-
-def get_name_of_file(message):
-    user.audio_only = message.text
     edited_filename = f"{''.join(random.choice(string.ascii_lowercase) for i in range(10))}.mp4"
+
     ydl_opts = {
         'format': 'best',
         'ext': 'mp4',
-        'outtmpl': str(os.getcwd() + '/' + user.file_name + '.mp4'),
+        'outtmpl': str(os.getcwd() + '/' + filename + '.mp4'),
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([str(user.link)])
 
-    duration = get_duration(mp.VideoFileClip(user.file_name + '.mp4').duration)
-    from_to_string = user.cut.split()
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            ydl.download([str(link)])
+        except DownloadError:
+            bot.reply_to(message, 'template filled incorrectly, type in /start to start over (incorrect link)')
+
+    duration = get_duration(mp.VideoFileClip(filename + '.mp4').duration)
+    from_to_string = cut.split()
+
     audio_only_pattern = '^yes$'
     time_pattern = '^\d{2}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$'
 
     is_cut = False
-    if re.match(time_pattern, user.cut) and from_to_string[0] < from_to_string[1] and from_to_string[1] > from_to_string[0] and from_to_string[1] <= duration and from_to_string[0] < duration:
+    if re.match(time_pattern, cut) and from_to_string[0] < from_to_string[1] and from_to_string[1] > \
+            from_to_string[0] and from_to_string[1] <= duration and from_to_string[0] < duration:
         is_cut = True
-        cut_script = f"""ffmpeg -i {user.file_name + '.mp4'} -ss {from_to_string[0]} -to {from_to_string[1]} -c copy {edited_filename} """
+        cut_script = f"""ffmpeg -i {filename + '.mp4'} -ss {from_to_string[0]} -to {from_to_string[1]} -c copy {edited_filename} """
         os.system(cut_script)
 
     is_audio_only = False
-    if re.match(audio_only_pattern, user.audio_only):
+    if re.match(audio_only_pattern, audio_only):
         is_audio_only = True
         if is_cut:
             file = edited_filename
         else:
-            file = user.file_name + '.mp4'
+            file = filename + '.mp4'
 
-        audio_only_script = f"""ffmpeg -i {file} {user.file_name + '.mp3'} """
+        audio_only_script = f"""ffmpeg -i {file} {filename + '.mp3'} """
         os.system(audio_only_script)
-        print(user.file_name + '.mp3')
 
     if is_audio_only:
-        bot.send_audio(message.chat.id, open(user.file_name + '.mp3', 'rb'))
-        os.remove(user.file_name + '.mp3')
-        os.remove(user.file_name + '.mp4')
+        bot.send_audio(message.chat.id, open(filename + '.mp3', 'rb'))
+        os.remove(filename + '.mp3')
+        os.remove(filename + '.mp4')
         if is_cut:
             os.remove(edited_filename)
     else:
         try:
             bot.send_document(message.chat.id, open(edited_filename, 'rb'))
             os.remove(edited_filename)
-            os.remove(user.file_name + '.mp4')
+            os.remove(filename + '.mp4')
         except FileNotFoundError:
-            bot.send_document(message.chat.id, open(user.file_name + '.mp4', 'rb'))
-            os.remove(user.file_name + '.mp4')
+            bot.send_document(message.chat.id, open(filename + '.mp4', 'rb'))
+            os.remove(filename + '.mp4')
 
 
 @bot.message_handler(commands=['vk'])
@@ -117,4 +108,5 @@ def send_audio(message):
     bot.send_audio(message.chat.id, vk_audio.main(message.text))
 
 
-bot.infinity_polling()
+if __name__ == '__main__':
+    bot.infinity_polling()

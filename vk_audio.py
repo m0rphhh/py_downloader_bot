@@ -3,10 +3,11 @@ import vk_api
 from vk_api.audio import VkAudio
 import random
 import string
+from decouple import config
 
 
 def main(search):
-    vk_session = vk_api.VkApi('LOGIN', 'PASSWORD')
+    vk_session = vk_api.VkApi(config('VK_LOGIN'), config('VK_PASSWORD'))
 
     try:
         vk_session.auth()
