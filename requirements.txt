@@ -65,3 +65,4 @@ youtube-dl==2021.12.17
 yt-dlp==2022.4.8
 zipp==3.8.0
 python_decouple==3.6
+sentry-sdk=1.5.12
