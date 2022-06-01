@@ -6,8 +6,9 @@ import string
 from decouple import config
 
 
-def main(search):
+def main(search, order):
     vk_session = vk_api.VkApi(config('VK_LOGIN'), config('VK_PASSWORD'))
+    order = order - 1
 
     try:
         vk_session.auth()
@@ -16,8 +17,13 @@ def main(search):
         return
 
     vkaudio = VkAudio(vk_session).search(q=search)
+    i = 0
 
     for track in vkaudio:
+        if i != order:
+            i += 1
+            continue
+
         ts_filename = f"{''.join(random.choice(string.ascii_lowercase) for i in range(10))}.ts"
         filename = f"{track.get('artist')} - {track.get('title')}.mp3"
         print('saving using streamlink')
@@ -25,4 +31,7 @@ def main(search):
         os.system(script_download)
         script_convert = f"""ffmpeg -i {ts_filename} "{filename}" """
         os.system(script_convert)
-        return open(filename, 'rb')
+        file = open(filename, 'rb')
+        os.remove(ts_filename)
+        os.remove(filename)
+        return file

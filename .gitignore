@@ -8,6 +8,8 @@
 .AppleDouble
 .LSOverride
 vk_config.v2.json
+db
+db/public.db
 
 # Icon must end with two \r
 Icon

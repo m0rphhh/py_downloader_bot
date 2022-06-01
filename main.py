@@ -43,7 +43,8 @@ def start(message):
                                 'cut:00:00:00 00:01:00\n'
                                 'audio_only:yes\n'
                                 'yandex_disk_token:\n'
-                                'yandex_path:')
+                                'yandex_path:\n'
+                                'vk_order:')
     bot.register_next_step_handler(msg, get_info)
 
 
@@ -62,6 +63,7 @@ def get_info(message):
         audio_only = info_split[3].split("audio_only:", 1)[1]
         yandex_disk_token = info_split[4].split("yandex_disk_token:", 1)[1]
         yandex_path = info_split[5].split("yandex_path:", 1)[1]
+        vk_order = info_split[6].split("vk_order:", 1)[1]
 
         use_yandex = False
         if yandex_disk_token != '' and yandex_path != '':
@@ -72,11 +74,15 @@ def get_info(message):
             use_yandex = True
 
         vk_audio_pattern = '^https*:\/\/vk.com\/audios'
+        vk_order_pattern = '^\d*$'
         if re.match(vk_audio_pattern, link):
+            vk_order = int(vk_order) if re.match(vk_order_pattern, vk_order) else 0
             query_pattern = '\?q=(.*)'
             query_regex = re.search(query_pattern, link)
             query = query_regex.group(1)
-            send_audio(message, query.replace('%20', ' '), use_yandex, yandex_disk_token, yandex_path, filename)
+            send_audio(message, query.replace('%20', ' '), use_yandex, yandex_disk_token, yandex_path, filename,
+                       vk_order)
+
             return
     except IndexError:
         bot.reply_to(message, 'template filled incorrectly, type in /start to start over (some of settings are empty)')
@@ -150,11 +156,11 @@ def get_info(message):
             os.remove(filename + '.mp4')
 
 
-def send_audio(message, query, use_yandex, token, path, filename):
+def send_audio(message, query, use_yandex, token, path, filename, order):
     if not use_yandex:
-        bot.send_audio(message.chat.id, vk_audio.main(query))
+        bot.send_audio(message.chat.id, vk_audio.main(query, order))
     else:
-        yandex_disk.upload_file_to_yandex_disk(token, path, vk_audio.main(query), filename + '.mp3')
+        yandex_disk.upload_file_to_yandex_disk(token, path, vk_audio.main(query, order), filename + '.mp3')
 
 
 if __name__ == '__main__':
