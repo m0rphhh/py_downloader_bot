@@ -1,0 +1,2 @@
+class YandexTokenError(Exception):
+    pass

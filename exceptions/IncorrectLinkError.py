@@ -1,0 +1,2 @@
+class IncorrectLinkError(Exception):
+    pass

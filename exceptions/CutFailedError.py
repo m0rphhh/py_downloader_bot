@@ -1,0 +1,2 @@
+class CutFailedError(Exception):
+    pass
