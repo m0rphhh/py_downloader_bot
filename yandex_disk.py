@@ -8,8 +8,8 @@ def upload_file_to_yandex_disk(token, path, file, filename):
         list(disk.listdir(path))
     except (PathNotFoundError, ParentNotFoundError):
         disk.mkdir(path)
-
-    disk.upload(file, path + '/' + filename)
+    finally:
+        disk.upload(file, path + '/' + filename)
 
 
 def check_disk(token):

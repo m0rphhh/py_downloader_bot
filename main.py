@@ -3,8 +3,10 @@ import random
 import re
 import string
 import telebot
+from telebot import apihelper
 import yt_dlp
 from yt_dlp import DownloadError
+from telebot.apihelper import ApiTelegramException
 import vk_audio
 import yandex_disk
 import moviepy.editor as mp
@@ -17,12 +19,14 @@ from exceptions.IncorrectLinkError import IncorrectLinkError
 from exceptions.TemplateError import TemplateError
 from exceptions.YandexTokenError import YandexTokenError
 from exceptions.CutFailedError import CutFailedError
+from exceptions.EntityTooLargeError import EntityTooLargeError
 
 sentry_sdk.init(
     config('SENTRY_TOKEN'),
     traces_sample_rate=1.0
 )
 
+apihelper.API_URL = "http://server:8081/bot{0}/{1}"
 bot = telebot.TeleBot(config('BOT_TOKEN'))
 
 # TEXT DATA
@@ -37,7 +41,7 @@ instruction = 'copy this template and insert your data\n' \
               'yandex_disk_token:not required, insert your yandex token if' \
               ' you want to upload file to your yandex disk. Tap this link to get your key https' \
               '://oauth.yandex.ru/authorize?response_type=token&client_id' \
-              f'={config("YANDEX_ID")}&redirect_uri=http://127.0.0.1:4996' \
+              f'={config("YANDEX_ID")}&redirect_uri=https://oauth.yandex.ru/verification_code' \
               ' and take it from query_string' \
               ' (access_token=<token>)\n' \
               'yandex_path:not required, example(yandex_path:videos), ' \
@@ -96,6 +100,7 @@ def get_info(message):
         query = query_regex.group(1)
         send_audio(message, query.replace('%20', ' '), use_yandex, yandex_disk_token, yandex_path, filename,
                    vk_order)
+        clear_sub_directory_by_id(message)
         return
 
     edited_filename = \
@@ -113,24 +118,42 @@ def get_info(message):
             yandex_disk.upload_file_to_yandex_disk(yandex_disk_token, yandex_path, open(filename + '.mp3', 'rb'),
                                                    yandex_filename + '.mp3')
         else:
-            bot.send_audio(message.chat.id, open(filename + '.mp3', 'rb'))
+            try:
+                bot.send_audio(message.chat.id, open(filename + '.mp3', 'rb'), timeout=100)
+            except ApiTelegramException as e:
+                bot.reply_to(message, 'file is too large, max size is 50MB.\n Try to upload file on yandex disk')
+                clear_sub_directory_by_id(message)
+                raise EntityTooLargeError(e.description)
+
     else:
         if use_yandex:
             filename_to_send = filename + '.mp4' if not is_cut else edited_filename
             yandex_disk.upload_file_to_yandex_disk(yandex_disk_token, yandex_path, open(filename_to_send, 'rb'),
-                                                   yandex_filename)
+                                                   yandex_filename + '.mp4')
+            clear_sub_directory_by_id(message)
         else:
             filename_to_send = filename + '.mp4' if not is_cut else edited_filename
-            bot.send_document(message.chat.id, open(filename_to_send, 'rb'))
+            try:
+                bot.send_video(message.chat.id, open(filename_to_send, 'rb'), timeout=200)
+            except ApiTelegramException as e:
+                bot.reply_to(message, 'file is too large, max size is 50MB.\n Try to upload file on yandex disk')
+                clear_sub_directory_by_id(message)
+                raise EntityTooLargeError(e.description)
 
     clear_sub_directory_by_id(message)
 
 
 def send_audio(message, query, use_yandex, token, path, filename, order):
     if not use_yandex:
-        bot.send_audio(message.chat.id, vk_audio.main(query, order))
+        try:
+            bot.send_audio(message.chat.id, vk_audio.main(query, order), timeout=200)
+        except ApiTelegramException as e:
+            bot.reply_to(message, 'file is too large, max size is 50MB.\n Try to upload file on yandex disk')
+            clear_sub_directory_by_id(message)
+            raise EntityTooLargeError(e.description)
     else:
         yandex_disk.upload_file_to_yandex_disk(token, path, vk_audio.main(query, order), filename + '.mp3')
+        clear_sub_directory_by_id(message)
 
 
 def get_user(message):
@@ -247,4 +270,4 @@ def clear_sub_directory_by_id(message):
 
 
 if __name__ == '__main__':
-    bot.infinity_polling(timeout=60, long_polling_timeout=5)
+    bot.infinity_polling(timeout=100, long_polling_timeout=100)

@@ -2,10 +2,15 @@ version: "3"
 
 services:
   app:
-    build: .
+    networks:
+      - local
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - .:/app
       - ./db/:/my/sqlite/path/
+    command: python3 main.py
 
   db:
     image: nouchka/sqlite3:latest
@@ -13,3 +18,25 @@ services:
     tty: true
     volumes:
       - ./db/:/root/db/
+
+  server:
+    networks:
+      - local
+    build:
+      context: .
+      dockerfile: DockerfileServer
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+    ports:
+      - "8081:8081"
+    volumes:
+      - telegram-bot-api-data:/telegram-bot-api
+    command: telegram-bot-api --api-id=${TELEGRAM_API_ID} --api-hash=${TELEGRAM_API_HASH}
+
+networks:
+  local:
+    driver: bridge
+
+volumes:
+  telegram-bot-api-data:

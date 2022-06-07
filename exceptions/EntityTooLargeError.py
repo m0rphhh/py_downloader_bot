@@ -1,0 +1,2 @@
+class EntityTooLargeError(Exception):
+    pass
