@@ -1,6 +1,5 @@
 import telebot
-from decouple import config
-
+import os
 #file for logout bot from https://telegram.org
-bot = telebot.TeleBot(config('BOT_TOKEN'))
+bot = telebot.TeleBot(os.getenv('BOT_TOKEN'))
 bot.log_out()

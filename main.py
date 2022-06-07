@@ -10,7 +10,6 @@ from telebot.apihelper import ApiTelegramException
 import vk_audio
 import yandex_disk
 import moviepy.editor as mp
-from decouple import config
 import sentry_sdk
 
 from db_init.user import User
@@ -22,12 +21,12 @@ from exceptions.CutFailedError import CutFailedError
 from exceptions.EntityTooLargeError import EntityTooLargeError
 
 sentry_sdk.init(
-    config('SENTRY_TOKEN'),
+    os.getenv('SENTRY_TOKEN'),
     traces_sample_rate=1.0
 )
 
 apihelper.API_URL = "http://server:8081/bot{0}/{1}"
-bot = telebot.TeleBot(config('BOT_TOKEN'))
+bot = telebot.TeleBot(os.getenv('BOT_TOKEN'))
 
 # TEXT DATA
 
@@ -41,7 +40,7 @@ instruction = 'copy this template and insert your data\n' \
               'yandex_disk_token:not required, insert your yandex token if' \
               ' you want to upload file to your yandex disk. Tap this link to get your key https' \
               '://oauth.yandex.ru/authorize?response_type=token&client_id' \
-              f'={config("YANDEX_ID")}&redirect_uri=https://oauth.yandex.ru/verification_code' \
+              f'={os.getenv("YANDEX_ID")}&redirect_uri=https://oauth.yandex.ru/verification_code' \
               ' and take it from query_string' \
               ' (access_token=<token>)\n' \
               'yandex_path:not required, example(yandex_path:videos), ' \

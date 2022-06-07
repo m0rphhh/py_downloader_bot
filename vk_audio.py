@@ -3,11 +3,10 @@ import vk_api
 from vk_api.audio import VkAudio
 import random
 import string
-from decouple import config
 
 
 def main(search, order):
-    vk_session = vk_api.VkApi(config('VK_LOGIN'), config('VK_PASSWORD'))
+    vk_session = vk_api.VkApi(os.getenv('VK_LOGIN'), os.getenv('VK_PASSWORD'))
     order = order - 1
 
     try:
