@@ -120,7 +120,7 @@ def get_info(message):
             try:
                 bot.send_audio(message.chat.id, open(filename + '.mp3', 'rb'), timeout=100)
             except ApiTelegramException as e:
-                bot.reply_to(message, 'file is too large, max size is 50MB.\n Try to upload file on yandex disk')
+                bot.reply_to(message, 'file is too large, max size is 1500MB.')
                 clear_sub_directory_by_id(message)
                 raise EntityTooLargeError(e.description)
 
@@ -203,6 +203,20 @@ def change_template(message):
     bot.reply_to(message, 'template changed successfully')
 
 
+@bot.message_handler(regexp='^https*://')
+def get_video_without_settings(message):
+    with yt_dlp.YoutubeDL() as ydl:
+        try:
+            info_dict = ydl.extract_info(message.text, download=False)
+            filename = 'files' + str(message.chat.id) + '/' + info_dict.get('title', None)
+        except DownloadError:
+            filename = 'files' + str(message.chat.id) + '/' + \
+                f"{''.join(random.choice(string.ascii_lowercase) for i in range(10))}"
+
+    download_video(filename, message.text, message)
+    bot.send_video(message.chat.id, open(filename + '.mp4', 'rb'))
+
+
 def get_audio_only(audio_only, is_cut, edited_filename, filename):
     audio_only_pattern = '^yes$'
     if re.match(audio_only_pattern, audio_only):
@@ -266,6 +280,15 @@ def clear_sub_directory_by_id(message):
     directory = os.getcwd() + '/files/' + str(message.chat.id)
     for file in os.listdir(directory):
         os.remove(os.path.join(directory, file))
+
+
+def get_settings(message):
+    info_split = message.text.split('\n')
+    settings = {}
+    for setting in info_split:
+        settings[setting.split(':', 1)[0]] = setting.split(':', 1)[1]
+
+    return settings
 
 
 if __name__ == '__main__':
